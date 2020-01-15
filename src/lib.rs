@@ -1,6 +1,10 @@
-use js_sys::{Error, Float32Array, WebAssembly};
-use nalgebra::{Vector3};
-use rand::prelude::*;
+mod color;
+mod dot_grid;
+
+use crate::color::Color;
+use crate::dot_grid::DotGrid;
+use js_sys::{Error, Float32Array, Math, WebAssembly};
+use nalgebra::Vector3;
 use std::slice::Iter;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -13,53 +17,7 @@ Perhaps the scale parameter could be used to scale these animations also, rather
 */
 
 trait Drawable {
-    fn draw(&self) -> Iter<(Vector3<f32>, Color)>;
-}
-
-#[derive(Debug, Copy, Clone)]
-struct Color {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
-}
-
-impl Color {
-    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Color {
-        Color { r, g, b, a }
-    }
-}
-
-struct DotGrid {
-    dots: Vec<Color>,
-    scale: usize,
-}
-
-impl DotGrid {
-    fn new(scale: usize) -> DotGrid {
-        DotGrid {
-            dots: vec![Color::new(1.0, 1.0, 1.0, 0.0); scale.pow(3)],
-            scale,
-        }
-    }
-
-    fn clear(&mut self) {
-        self.dots.iter_mut().for_each(|el| el.a = 0.0);
-    }
-
-    fn get_dot(&mut self, x: usize, y: usize, z: usize) -> &mut Color {
-        let scale = self.scale;
-        &mut self.dots[x * scale.pow(2) + y * scale + z]
-    }
-
-    fn set_nearest(&mut self, point: Vector3<f32>, color: Color) {
-        //&mut self.grid[x * scale.pow(2) + y * scale + z]
-    }
-
-    fn set_octet(&mut self, point: Vector3<f32>, color: Color) {
-        let scale = self.scale;
-        //&mut self.grid[x * scale.pow(2) + y * scale + z]
-    }
+    fn get_instructions(&self) -> Iter<(Vector3<f32>, Color)>;
 }
 
 #[wasm_bindgen]
@@ -86,34 +44,28 @@ impl World {
 
     pub fn update(&mut self) {
         //self.dot_grid.clear();
-        let mut rng = rand::thread_rng();
-        let max = self.dot_grid.scale as f32;
+        let max = self.dot_grid.scale as f64;
         for _ in 0..1000 {
-            let x = (rng.gen::<f32>() * max) as usize;
-            let y = (rng.gen::<f32>() * max) as usize;
-            let z = (rng.gen::<f32>() * max) as usize;
-            let color_index = (rng.gen::<f32>() * 4.) as usize;
+            let x = (Math::random() * max) as usize;
+            let y = (Math::random() * max) as usize;
+            let z = (Math::random() * max) as usize;
+            let color_index = (Math::random() * 4.) as usize;
             let mut color = self.colors[color_index];
-            color.a = rng.gen::<f32>() * 0.7;
+            color.a = (Math::random() * 0.7) as f32;
             let dot = self.dot_grid.get_dot(x, y, z);
             *dot = color;
         }
     }
 
     pub fn get_buffer(&self) -> Float32Array {
+        let (ptr, len) = self.dot_grid.get_ptr();
         Float32Array::new_with_byte_offset_and_length(
             &wasm_bindgen::memory()
                 .dyn_into::<WebAssembly::Memory>()
                 .unwrap()
                 .buffer(),
-            self.dot_grid.dots.as_ptr() as u32,
-            (self.dot_grid.dots.len() * 4) as u32,
+            ptr,
+            len,
         )
     }
-
-    fn draw_continuous(&mut self, x: f32, y: f32, z: f32) {}
-
-    fn draw_discrete(&mut self, x: f32, y: f32, z: f32) {}
-
-    // Maybe I should be implementing these methods on the grid itself? That would make it easier to do borrow splitting.
 }
