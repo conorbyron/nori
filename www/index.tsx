@@ -162,9 +162,9 @@ rust
     composer.addPass(bloomPass)
 
     let animate = function() {
-      setTimeout(() => {
-        requestAnimationFrame(animate)
-      }, 1000 / 30)
+      //setTimeout(() => {
+      requestAnimationFrame(animate)
+      //}, 1000 / 30)
       p += 0.1
       shader.uniforms.p.value = p
       world.update()
