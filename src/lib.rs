@@ -54,40 +54,49 @@ impl Drawable for LineSegment {
 #[wasm_bindgen]
 pub struct World {
     dot_grid: DotGrid,
+    min: f32,
+    max: f32,
+    oscs: [f32; 4],
 }
 
 #[wasm_bindgen]
 impl World {
     #[wasm_bindgen(constructor)]
-    pub fn new(scale: usize) -> World {
+    pub fn new(scale: usize, min: f32, max: f32) -> World {
         World {
             dot_grid: DotGrid::new(scale),
+            min,
+            max,
+            oscs: [0.; 4],
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, oscs: Vec<f32>) {
         self.dot_grid.clear();
+        let min = self.min;
+        let max = self.max;
+        let range = max - min;
+        oscs.iter()
+            .enumerate()
+            .for_each(|(i, &osc)| self.oscs[i] = (osc - min) / range);
         let scale = self.dot_grid.scale as f64;
         let mut lines = Vec::new();
-        for _ in 0..500 {
-            let x0 = (Math::random() * scale) as f32;
-            let y0 = (Math::random() * scale) as f32;
-            let z0 = (Math::random() * scale) as f32;
-            let x1 = (Math::random() - 0.5) as f32;
-            let y1 = (Math::random() - 0.5) as f32;
-            let z1 = (Math::random() - 0.5) as f32;
-            lines.push(LineSegment::new(
-                Vector3::new(x0, y0, z0),
-                Vector3::new(x1, y1, z1),
-                10.,
-                Color::new(
-                    Math::random() as f32,
-                    Math::random() as f32,
-                    Math::random() as f32,
-                    1.0,
-                ),
-            ));
-        }
+        let iters = 50;
+        self.oscs.iter().for_each(|&osc| {
+            let color = Color::new_from_hsl(osc * 0.8, 1.0, 0.5, 1.0);
+            for _ in 0..iters {
+                let x1 = (Math::random() - 0.5) as f32;
+                let y1 = (Math::random() - 0.5) as f32;
+                let z1 = (Math::random() - 0.5) as f32;
+                let dir = Vector3::new(x1, y1, z1).normalize();
+                lines.push(LineSegment::new(
+                    Vector3::new(25., 25., 25.) + dir * osc * 25.,
+                    dir,
+                    5.,
+                    color,
+                ));
+            }
+        });
         let dot_grid = &mut self.dot_grid;
         lines.iter().for_each(|line| dot_grid.draw(line));
     }

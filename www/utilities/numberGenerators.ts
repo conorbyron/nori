@@ -53,8 +53,6 @@ export const pickNFromMGenerator = (m: number) => {
     values.push(i)
   }
 
-  console.log(values)
-
   const pickNFromM = (n: number) => {
     return shuffle(values).slice(0, n)
   }
