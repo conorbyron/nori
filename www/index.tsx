@@ -170,10 +170,13 @@ rust
     const pickNFrom16 = pickNFromMGenerator(16)
 
     let gain = new Tone.Gain(0).toMaster()
-    let osc1 = new Tone.Oscillator(440, 'square').connect(gain)
-    let osc2 = new Tone.Oscillator(440, 'square').connect(gain)
-    let osc3 = new Tone.Oscillator(440, 'square').connect(gain)
-    let osc4 = new Tone.Oscillator(440, 'square').connect(gain)
+    let filter = new Tone.Filter(7000, 'peaking').connect(gain)
+    filter.Q.value = 0.1
+    filter.gain.value = 1
+    let osc1 = new Tone.Oscillator(440, 'square').connect(filter)
+    let osc2 = new Tone.Oscillator(440, 'square').connect(filter)
+    let osc3 = new Tone.Oscillator(440, 'square').connect(filter)
+    let osc4 = new Tone.Oscillator(440, 'square').connect(filter)
 
     const keyDown = () => {
       Tone.context.resume().then(() => {
@@ -202,6 +205,24 @@ rust
       osc3.frequency.linearRampTo(notes[2], rampTime)
       osc4.frequency.linearRampTo(notes[3], rampTime)
     }, loopTime).start(0)
+
+    let cameraPosition = new THREE.Vector3(0, 0, 0)
+
+    const filterRampTime = 0.05
+
+    let cameraPositionLoop = new Tone.Loop(time => {
+      cameraPosition.copy(camera.position)
+      cameraPosition.normalize()
+      filter.frequency.linearRampTo(
+        Math.pow(2, 10 + 4 * cameraPosition.x),
+        filterRampTime
+      )
+      filter.Q.linearRampTo(
+        Math.pow(2, 1 + 3 * cameraPosition.y),
+        filterRampTime
+      )
+      filter.gain.linearRampTo(25 + 10 * cameraPosition.z, filterRampTime)
+    }, filterRampTime).start(0)
 
     let animate = function() {
       //setTimeout(() => {
