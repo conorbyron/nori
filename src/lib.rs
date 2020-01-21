@@ -2,7 +2,7 @@ mod color;
 mod dot_grid;
 
 use crate::color::Color;
-use crate::dot_grid::DotGrid;
+use crate::dot_grid::{DotGrid, Drawable};
 use js_sys::{Float32Array, Math, WebAssembly};
 use nalgebra::{Unit, Vector3};
 use wasm_bindgen::prelude::*;
@@ -11,9 +11,7 @@ use wasm_bindgen::JsCast;
 
 // TODO: Import/integrate/implement ways of controlling the timing of animations more precisely. Strive for continuity in animations.
 
-trait Drawable {
-    fn get_instructions(&self) -> Vec<(Vector3<f32>, Color)>;
-}
+// TODO: NEW SHAPES: Rectangle, Circle, Cylinder, Cone, Box, Sphere
 
 struct LineSegment {
     origin: Vector3<f32>,
@@ -71,13 +69,13 @@ impl World {
         self.dot_grid.clear();
         let scale = self.dot_grid.scale as f64;
         let mut lines = Vec::new();
-        for _ in 0..100 {
+        for _ in 0..500 {
             let x0 = (Math::random() * scale) as f32;
             let y0 = (Math::random() * scale) as f32;
             let z0 = (Math::random() * scale) as f32;
-            let x1 = (Math::random() * scale) as f32;
-            let y1 = (Math::random() * scale) as f32;
-            let z1 = (Math::random() * scale) as f32;
+            let x1 = (Math::random() - 0.5) as f32;
+            let y1 = (Math::random() - 0.5) as f32;
+            let z1 = (Math::random() - 0.5) as f32;
             lines.push(LineSegment::new(
                 Vector3::new(x0, y0, z0),
                 Vector3::new(x1, y1, z1),

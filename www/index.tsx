@@ -4,10 +4,16 @@
 import * as THREE from 'three'
 import vert from './glsl/shader.vert'
 import frag from './glsl/shader.frag'
+//import bufferFrag from './glsl/bufferShader.frag'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import {
+  scaleGenerator,
+  pickNFromMGenerator
+} from './utilities/numberGenerators'
+import Tone from 'tone'
+//import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+//import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+//import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 
 const rust = import('../pkg')
 
@@ -17,7 +23,7 @@ rust
 
     //ReactDOM.render(<App />, document.getElementById('root'))
 
-    const scale = 50
+    const scale = 100
     const centreOffset = (scale - 1.0) / 2.0
     let p = 0
     let width = window.innerWidth
@@ -42,9 +48,7 @@ rust
     renderer.setSize(width, height)
 
     let controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping = true
-    controls.dampingFactor = 0.25
-    controls.enableZoom = true
+    controls.enablePan = false
 
     document.body.appendChild(renderer.domElement)
 
@@ -146,9 +150,8 @@ rust
     )
 
     bufferCamera.position.z = 2
-    */
 
-    let renderScene = new RenderPass(scene, camera)
+    let renderScene = new RenderPass(bufferScene, bufferCamera)
 
     let bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -160,25 +163,62 @@ rust
     let composer = new EffectComposer(renderer)
     composer.addPass(renderScene)
     composer.addPass(bloomPass)
+    */
+
+    const noteScale = scaleGenerator([3, 2, 2, 3, 2])
+
+    const pickNFrom16 = pickNFromMGenerator(16)
+
+    let gain = new Tone.Gain(0).toMaster()
+    let osc1 = new Tone.Oscillator(440, 'square').connect(gain)
+    let osc2 = new Tone.Oscillator(440, 'square').connect(gain)
+    let osc3 = new Tone.Oscillator(440, 'square').connect(gain)
+    let osc4 = new Tone.Oscillator(440, 'square').connect(gain)
+
+    const keyDown = () => {
+      Tone.context.resume().then(() => {
+        Tone.Transport.start()
+        gain.gain.exponentialRampTo(0.01, 10)
+        osc1.start()
+        osc2.start()
+        osc3.start()
+        osc4.start()
+      })
+    }
+
+    window.addEventListener('keydown', keyDown)
+    window.addEventListener('touchend', keyDown)
+    window.addEventListener('click', keyDown)
+
+    const loopTime = 4
+    const rampTime = 1.5
+
+    let loop = new Tone.Loop(time => {
+      const numbers = pickNFrom16(4).sort((a, b) => a - b)
+      console.log(numbers)
+      const notes = numbers.map(el => Tone.Frequency.mtof(noteScale(el) + 40))
+      osc1.frequency.linearRampTo(notes[0], rampTime)
+      osc2.frequency.linearRampTo(notes[1], rampTime)
+      osc3.frequency.linearRampTo(notes[2], rampTime)
+      osc4.frequency.linearRampTo(notes[3], rampTime)
+    }, loopTime).start(0)
 
     let animate = function() {
       //setTimeout(() => {
       requestAnimationFrame(animate)
-      //}, 1000 / 30)
+      //}, 1000 / 12)
       p += 0.1
       shader.uniforms.p.value = p
       world.update()
       geometry.attributes.color.needsUpdate = true
-      /*
-      renderer.setRenderTarget(buffer01)
+      //renderer.setRenderTarget(buffer01)
       renderer.render(scene, camera)
+      /*
       bufferMaterial.uniforms.current.value = buffer01.texture
       bufferMaterial.uniforms.delay.value = buffer02.texture
       renderer.setRenderTarget(buffer03)
-      renderer.render(bufferScene, bufferCamera)
-      */
+      renderer.render(scene, camera)
       composer.render()
-      /*
       let temp = buffer03
       buffer03 = buffer02
       buffer02 = temp

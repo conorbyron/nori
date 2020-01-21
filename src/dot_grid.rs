@@ -1,6 +1,9 @@
 use crate::color::Color;
-use crate::Drawable;
 use nalgebra::Vector3;
+
+pub trait Drawable {
+    fn get_instructions(&self) -> Vec<(Vector3<f32>, Color)>;
+}
 
 pub struct DotGrid {
     dots: Vec<Color>,
