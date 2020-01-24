@@ -33,10 +33,10 @@ rust
     scene.background = new THREE.Color(0x000000)
 
     let camera = new THREE.OrthographicCamera(
-      width / -32,
-      width / 32,
-      height / 32,
-      height / -32,
+      width / -16,
+      width / 16,
+      height / 16,
+      height / -16,
       -10000,
       10000
     )
@@ -106,23 +106,70 @@ rust
 
     const pickNFrom16 = pickNFromMGenerator(16)
 
+    class CompleteVoice {
+      ramp: Tone.BufferSource
+      filter: Tone.Filter
+      osc: Tone.Oscillator
+      meter: Tone.Meter
+
+      constructor(buffer: Tone.Buffer) {
+        this.ramp = new Tone.BufferSource(buffer, () => {})
+        this.ramp.loop = true
+        this.ramp.playbackRate.value = 0.25
+        this.filter = new Tone.Filter()
+        this.filter.Q.value = 15
+        this.ramp.connect(this.filter.frequency)
+        this.osc = new Tone.Oscillator(440, 'square').connect(this.filter)
+        this.meter = new Tone.Meter(0.0)
+        this.ramp.connect(this.meter)
+      }
+
+      start() {
+        this.osc.start()
+        if (this.ramp.state != 'started') this.ramp.start()
+      }
+
+      rampTo(value: number, time: number) {
+        this.osc.frequency.linearRampTo(value, time)
+      }
+
+      connect(node: Tone.ProcessingNode) {
+        this.filter.connect(node)
+      }
+
+      getMeter(): number {
+        return this.meter.getValue()
+      }
+
+      getFrequency(): number {
+        return this.osc.frequency.value
+      }
+    }
+
     let gain = new Tone.Gain(0).toMaster()
-    let filter = new Tone.Filter(7000, 'peaking').connect(gain)
-    filter.Q.value = 0.1
-    filter.gain.value = 1
-    let osc1 = new Tone.Oscillator(440, 'square').connect(filter)
-    let osc2 = new Tone.Oscillator(440, 'square').connect(filter)
-    let osc3 = new Tone.Oscillator(440, 'square').connect(filter)
-    let osc4 = new Tone.Oscillator(440, 'square').connect(filter)
+
+    let rampVals = new Float32Array(44100)
+    for (let i = 0; i < 44100; i++) {
+      let pos = i / 44100
+      if (pos < 0.7) rampVals[i] = pos / 0.7
+      else rampVals[i] = 1 - (pos - 0.7) / 0.3
+      rampVals[i] *= 1250
+    }
+    let rampBuffer = Tone.Buffer.fromArray(rampVals)
+    let voices: CompleteVoice[] = []
+    for (let i = 0; i < 4; i++) {
+      let voice = new CompleteVoice(rampBuffer)
+      voice.connect(gain)
+      voices.push(voice)
+    }
 
     const keyDown = () => {
       Tone.context.resume().then(() => {
         Tone.Transport.start()
-        gain.gain.exponentialRampTo(0.01, 1.5)
-        osc1.start()
-        osc2.start()
-        osc3.start()
-        osc4.start()
+        gain.gain.exponentialRampTo(0.01, 0.5)
+        voices.forEach(voice => {
+          voice.start()
+        })
       })
     }
 
@@ -136,41 +183,21 @@ rust
     let loop = new Tone.Loop(time => {
       const numbers = pickNFrom16(4).sort((a, b) => a - b)
       const notes = numbers.map(el => Tone.Frequency.mtof(noteScale(el) + 40))
-      osc1.frequency.linearRampTo(notes[0], rampTime)
-      osc2.frequency.linearRampTo(notes[1], rampTime)
-      osc3.frequency.linearRampTo(notes[2], rampTime)
-      osc4.frequency.linearRampTo(notes[3], rampTime)
+      voices.forEach((voice, i) => {
+        voice.rampTo(notes[i], rampTime)
+      })
     }, loopTime).start(0)
 
     let cameraPosition = new THREE.Vector3(0, 0, 0)
 
     const filterRampTime = 0.05
 
-    let cameraPositionLoop = new Tone.Loop(time => {
-      cameraPosition.copy(camera.position)
-      cameraPosition.normalize()
-      filter.frequency.linearRampTo(
-        Math.pow(2, 10 + 4 * cameraPosition.x),
-        filterRampTime
-      )
-      filter.Q.linearRampTo(
-        Math.pow(2, 1 + 3 * cameraPosition.y),
-        filterRampTime
-      )
-      filter.gain.linearRampTo(25 + 10 * cameraPosition.z, filterRampTime)
-    }, filterRampTime).start(0)
-
     let animate = function() {
       requestAnimationFrame(animate)
       p += 0.1
       shader.uniforms.p.value = p
 
-      const freqs = [
-        osc1.frequency.value,
-        osc2.frequency.value,
-        osc3.frequency.value,
-        osc4.frequency.value
-      ]
+      const freqs = voices.map(voice => voice.getFrequency())
       world.update(new Float32Array(freqs))
       geometry.attributes.color.needsUpdate = true
       renderer.render(scene, camera)
