@@ -2,6 +2,8 @@
 
 first exercise with rust-wasm, three.js, react, tone.js, ts
 
+the name and inspiration for the experiment came from Toshio Iwai's Tenori-On (2007)
+
 what I learned:
 - how to have values from tone control three objects and vice versa
 - how to share an array buffer between rust land and js land easily
